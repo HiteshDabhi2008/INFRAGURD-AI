@@ -1,0 +1,41 @@
+PAIMANA Data Validation Report
+Input: C:\Users\HITESH\OneDrive\Desktop\SIH-2026\INFRAGURD-AI\data\processed\paimana_cleaned.csv
+Rows: 1775
+============================================================
+
+
+--- ROW_COUNT ---
+  ROW COUNT OK: 1775 matches expected 1775
+
+--- PROJECT_IDS ---
+
+--- DATES ---
+  MISSING approval_date: 12 rows (0.7%)
+  REVERSED DATES: 3 rows where approval_date > original_completion_date
+
+--- COSTS ---
+
+--- PROGRESS ---
+
+--- NAMES ---
+  DUPLICATE project_name: 2 rows share 1 names
+
+============================================================
+
+Null counts:
+sl_no                         0
+project_name                  0
+agency                        0
+project_code                  0
+state                         0
+approval_date                12
+start_date                    0
+original_completion_date      0
+revised_completion_date     348
+original_cost                 0
+revised_cost                  0
+cumulative_expenditure        0
+physical_progress             0
+source_page                   0
+report_month                  0
+source_report                 0

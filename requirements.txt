@@ -12,6 +12,7 @@ joblib
 requests
 python-dotenv
 openpyxl
+pdfplumber
 groq
 langchain
 langchain-groq

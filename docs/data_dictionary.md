@@ -7,7 +7,7 @@
 - **Table**: Table 6 — All Ongoing Projects
 - **Scope**: Central Sector Infrastructure Projects costing ₹150 crore & above
 
-## Master Dataset: `paimana_master_v1.csv`
+## Master Dataset: `paimana_master_v1.csv` & `master_projects.csv`
 
 ### Raw Fields (from PDF)
 
@@ -30,14 +30,22 @@
 | `report_month` | String | Month of the flash report | Extraction metadata | Always present | `July 2026` |
 | `source_report` | String | Filename of source PDF | Extraction metadata | Always present | `FlashReport_July_2026.pdf` |
 
+## Feature Dataset: `project_features.csv`
+
 ### Derived Fields
 
 | Field | Type | Meaning | Formula | Missing Treatment | Example |
 |---|---|---|---|---|---|
+| `project_age_days` | Float | Age of project in days (from approval to report date) | `days(current_date - approval_date)` | Null if date missing | `1217` |
+| `original_duration_days` | Float | Planned project duration in days | `days(original_completion_date - start_date)` | Null if dates missing | `731` |
+| `revised_duration_days` | Float | Revised project duration in days | `days(revised_completion_date - start_date)` | Null if dates missing | `974` |
+| `cost_change` | Float | Difference between revised and original cost (₹ crore) | `revised_cost - original_cost` | Null if either missing | `0.0` |
+| `cost_change_percent` | Float | Percentage cost increase/change | `(cost_change / original_cost) * 100` | 0 if original_cost is 0, Null if missing | `0.0` |
+| `expenditure_percent` | Float | Expenditure as % of revised cost | `(cumulative_expenditure / revised_cost) * 100` | Null if revised_cost missing/0 | `66.3` |
+| `progress_gap` | Float | Gap between spending % and physical progress % | `expenditure_percent - physical_progress` | Null if either is missing | `-13.7` |
+| `project_size_category` | String | Categorization of project by original cost | `<1000=Small, 1000-5000=Medium, >5000=Large` | `Unknown` if missing | `Small` |
 | `cost_overrun` | Int (0/1) | Binary flag: did cost increase? | `1 if revised_cost > original_cost else 0` | Null if either cost is missing | `1` |
 | `cost_overrun_percent` | Float | Percentage cost increase | `((revised - original) / original) * 100` | Null if original_cost is 0 or missing | `35.2` |
-| `expenditure_percent` | Float | Expenditure as % of revised cost | `(cumulative_expenditure / revised_cost) * 100` | Null if revised_cost is 0 or missing | `66.3` |
-| `progress_gap` | Float | Gap between spending and physical progress | `expenditure_percent - physical_progress` | Null if either is missing | `-13.7` |
 | `original_duration_months` | Float | Planned project duration in months | `months(original_completion_date - approval_date)` | Null if dates missing | `36` |
 | `revised_duration_months` | Float | Revised project duration in months | `months(revised_completion_date - approval_date)` | Null if revised_completion_date is missing | `42` |
 | `time_overrun_months` | Float | Time overrun in months | `months(revised_completion_date - original_completion_date)` | Null if revised_completion_date is missing | `6` |
@@ -48,15 +56,16 @@ The following fields are **OUTCOME INDICATORS** and must **NOT** be used as pred
 
 - `revised_cost` → Defines cost overrun (target for Member 3)
 - `revised_completion_date` → Defines time overrun (target for Member 4)
-- `cost_overrun`, `cost_overrun_percent` → Derived targets
-- `time_overrun_months` → Derived target
+- `cost_change`, `cost_change_percent`, `cost_overrun`, `cost_overrun_percent` → Derived cost targets
+- `revised_duration_days`, `revised_duration_months`, `time_overrun_months` → Derived time targets
+- `expenditure_percent` and `progress_gap` → If they contain `revised_cost` they might implicitly leak outcome information if cost overruns are highly correlated with current spending.
 
 See [data_leakage.md](data_leakage.md) for full documentation.
 
 ## Notes
 
 - All cost values are in **₹ crore (Indian Rupees, crore)**.
-- Dates are normalized to **YYYY-MM** format.
+- Dates are normalized to **YYYY-MM** or converted to Pandas datetime.
 - `"-"` in the source PDF means "not applicable" or "not revised" — stored as `null`.
 - Missing values are **NOT** converted to zero.
 - The July 2026 report is a **single monthly snapshot**. It is NOT a time series.

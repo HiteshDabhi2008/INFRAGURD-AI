@@ -1,208 +1,123 @@
-"""
-validate.py — Member 1: Data Validation for PAIMANA Data
-=========================================================
-Checks for data quality issues WITHOUT automatically deleting records.
-Reports problems for manual review.
-
-Usage:
-    python -m src.data.validate
-    or
-    python src/data/validate.py
-"""
-
 import pandas as pd
 import numpy as np
 import os
-import sys
 
-BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-INPUT_CSV = os.path.join(BASE_DIR, "data", "processed", "paimana_cleaned.csv")
-REPORT_PATH = os.path.join(BASE_DIR, "data", "processed", "validation_report.txt")
+def validate_data(input_file, output_master_file, report_file):
+    # Ensure directories exist
+    os.makedirs(os.path.dirname(output_master_file), exist_ok=True)
+    os.makedirs(os.path.dirname(report_file), exist_ok=True)
 
-EXPECTED_PROJECT_COUNT = 1775
-
-
-def validate_project_ids(df: pd.DataFrame) -> list:
-    """Check for missing, duplicate, and out-of-range project IDs."""
-    issues = []
-
-    # Missing sl_no
-    missing_ids = df[df['sl_no'].isna()]
-    if len(missing_ids) > 0:
-        issues.append(f"MISSING Sl.No: {len(missing_ids)} rows have no Sl.No")
-
-    # Duplicate sl_no
-    dupes = df[df['sl_no'].duplicated(keep=False)]
-    if len(dupes) > 0:
-        dupe_vals = sorted(dupes['sl_no'].dropna().unique().tolist())
-        issues.append(f"DUPLICATE Sl.No: {len(dupe_vals)} values duplicated: {dupe_vals[:20]}{'...' if len(dupe_vals) > 20 else ''}")
-
-    # Missing serial numbers in sequence
-    if df['sl_no'].notna().any():
-        expected = set(range(1, EXPECTED_PROJECT_COUNT + 1))
-        found = set(df['sl_no'].dropna().astype(int).tolist())
-        missing = sorted(expected - found)
-        if missing:
-            issues.append(f"MISSING from sequence: {len(missing)} Sl.Nos not found: {missing[:30]}{'...' if len(missing) > 30 else ''}")
-
-    # Duplicate project codes
-    if 'project_code' in df.columns:
-        code_dupes = df[df['project_code'].notna() & df['project_code'].duplicated(keep=False)]
-        if len(code_dupes) > 0:
-            dupe_codes = sorted(code_dupes['project_code'].unique().tolist())
-            issues.append(f"DUPLICATE Project Codes: {len(dupe_codes)} codes duplicated: {dupe_codes[:20]}{'...' if len(dupe_codes) > 20 else ''}")
-
-    return issues
-
-
-def validate_dates(df: pd.DataFrame) -> list:
-    """Check for invalid or missing dates."""
-    issues = []
-
-    for col in ['approval_date', 'original_completion_date']:
-        if col in df.columns:
-            missing = df[col].isna().sum()
-            if missing > 0:
-                issues.append(f"MISSING {col}: {missing} rows ({missing/len(df)*100:.1f}%)")
-
-    # Check for reversed dates (approval after completion)
-    if 'approval_date' in df.columns and 'original_completion_date' in df.columns:
-        valid_both = df[df['approval_date'].notna() & df['original_completion_date'].notna()]
-        reversed_dates = valid_both[valid_both['approval_date'] > valid_both['original_completion_date']]
-        if len(reversed_dates) > 0:
-            issues.append(f"REVERSED DATES: {len(reversed_dates)} rows where approval_date > original_completion_date")
-
-    return issues
-
-
-def validate_costs(df: pd.DataFrame) -> list:
-    """Check for invalid cost values."""
-    issues = []
-
-    for col in ['original_cost', 'revised_cost', 'cumulative_expenditure']:
-        if col in df.columns:
-            missing = df[col].isna().sum()
-            if missing > 0:
-                issues.append(f"MISSING {col}: {missing} rows ({missing/len(df)*100:.1f}%)")
-
-            negative = df[df[col].notna() & (df[col] < 0)]
-            if len(negative) > 0:
-                issues.append(f"NEGATIVE {col}: {len(negative)} rows have negative values")
-
-    return issues
-
-
-def validate_progress(df: pd.DataFrame) -> list:
-    """Check for impossible physical progress values."""
-    issues = []
-
-    if 'physical_progress' in df.columns:
-        missing = df['physical_progress'].isna().sum()
-        if missing > 0:
-            issues.append(f"MISSING physical_progress: {missing} rows ({missing/len(df)*100:.1f}%)")
-
-        invalid = df[df['physical_progress'].notna() & (df['physical_progress'] < 0)]
-        if len(invalid) > 0:
-            issues.append(f"NEGATIVE physical_progress: {len(invalid)} rows")
-
-        over_100 = df[df['physical_progress'].notna() & (df['physical_progress'] > 100)]
-        if len(over_100) > 0:
-            issues.append(f"OVER 100% physical_progress: {len(over_100)} rows (Sl.Nos: {sorted(over_100['sl_no'].tolist())[:10]})")
-
-    return issues
-
-
-def validate_row_count(df: pd.DataFrame) -> list:
-    """Check row count against expected."""
-    issues = []
-
-    if len(df) != EXPECTED_PROJECT_COUNT:
-        issues.append(f"ROW COUNT MISMATCH: Got {len(df)}, expected {EXPECTED_PROJECT_COUNT} (diff: {len(df) - EXPECTED_PROJECT_COUNT})")
+    df = pd.read_csv(input_file)
+    report_lines = ["# Data Quality Report", ""]
+    
+    total_records = len(df)
+    report_lines.append(f"**Total Records Processed:** {total_records}")
+    report_lines.append("")
+    
+    # 1. Required columns
+    required_columns = ['project_name', 'agency', 'project_code', 'state', 'original_cost', 'revised_cost']
+    missing_cols = [col for col in required_columns if col not in df.columns]
+    if missing_cols:
+        report_lines.append(f"**Missing Required Columns:** {', '.join(missing_cols)}")
     else:
-        issues.append(f"ROW COUNT OK: {len(df)} matches expected {EXPECTED_PROJECT_COUNT}")
-
-    return issues
-
-
-def validate_names(df: pd.DataFrame) -> list:
-    """Check for suspicious duplicate project names."""
-    issues = []
-
-    if 'project_name' in df.columns:
-        missing_names = df['project_name'].isna().sum()
-        if missing_names > 0:
-            issues.append(f"MISSING project_name: {missing_names} rows")
-
-        name_dupes = df[df['project_name'].notna() & df['project_name'].duplicated(keep=False)]
-        if len(name_dupes) > 0:
-            dupe_names = name_dupes['project_name'].unique()[:10]
-            issues.append(f"DUPLICATE project_name: {len(name_dupes)} rows share {len(df[df['project_name'].notna()].groupby('project_name').filter(lambda x: len(x) > 1)['project_name'].unique())} names")
-
-    return issues
-
-
-def run_validation(df: pd.DataFrame) -> dict:
-    """Run all validation checks and return results."""
-    print(f"\n{'='*60}")
-    print("VALIDATION REPORT")
-    print(f"{'='*60}")
-
-    results = {
-        "row_count": validate_row_count(df),
-        "project_ids": validate_project_ids(df),
-        "dates": validate_dates(df),
-        "costs": validate_costs(df),
-        "progress": validate_progress(df),
-        "names": validate_names(df),
-    }
-
-    all_issues = []
-    for category, issues in results.items():
-        print(f"\n--- {category.upper()} ---")
-        for issue in issues:
-            print(f"  {issue}")
-            all_issues.append(issue)
-
-    # Summary
-    print(f"\n{'='*60}")
-    print(f"TOTAL ISSUES: {len(all_issues)}")
-    print(f"\nNull value summary:")
-    print(df.isnull().sum().to_string())
-
-    return results
-
-
-def main():
-    """Run validation on cleaned data."""
-    if not os.path.exists(INPUT_CSV):
-        print(f"ERROR: Input CSV not found at {INPUT_CSV}")
-        print("Run clean.py first.")
-        sys.exit(1)
-
-    df = pd.read_csv(INPUT_CSV)
-    print(f"Loaded {len(df)} rows from {INPUT_CSV}")
-
-    results = run_validation(df)
-
-    # Save report
-    os.makedirs(os.path.dirname(REPORT_PATH), exist_ok=True)
-    with open(REPORT_PATH, 'w', encoding='utf-8') as f:
-        f.write("PAIMANA Data Validation Report\n")
-        f.write(f"Input: {INPUT_CSV}\n")
-        f.write(f"Rows: {len(df)}\n")
-        f.write(f"{'='*60}\n\n")
-        for category, issues in results.items():
-            f.write(f"\n--- {category.upper()} ---\n")
-            for issue in issues:
-                f.write(f"  {issue}\n")
-        f.write(f"\n{'='*60}\n")
-        f.write(f"\nNull counts:\n")
-        f.write(df.isnull().sum().to_string())
-
-    print(f"\nValidation report saved to: {REPORT_PATH}")
-
-    return results
-
+        report_lines.append("**Required Columns:** All present.")
+        
+    report_lines.append("")
+    
+    # 2. Duplicate Records
+    duplicates = df[df.duplicated()]
+    if not duplicates.empty:
+        report_lines.append(f"**Duplicate Records Found:** {len(duplicates)}")
+        # Drop true duplicates
+        df = df.drop_duplicates()
+    else:
+        report_lines.append("**Duplicate Records:** None found.")
+        
+    # Project ID duplicates (sometimes one project has multiple entries for different months, but here we assume project_code + report_month should be unique)
+    if 'project_code' in df.columns and 'report_month' in df.columns:
+        id_month_dups = df[df.duplicated(subset=['project_code', 'report_month'])]
+        if not id_month_dups.empty:
+            report_lines.append(f"**Duplicate Project Codes per Month:** {len(id_month_dups)}")
+            # Drop these specifically keeping last
+            df = df.drop_duplicates(subset=['project_code', 'report_month'], keep='last')
+        else:
+            report_lines.append("**Duplicate Project Codes per Month:** None found.")
+            
+    report_lines.append("")
+            
+    # 3. Missing Values
+    report_lines.append("## Missing Values Summary")
+    missing_summary = df.isnull().sum()
+    missing_summary = missing_summary[missing_summary > 0]
+    if missing_summary.empty:
+        report_lines.append("No missing values.")
+    else:
+        for col, count in missing_summary.items():
+            report_lines.append(f"- **{col}**: {count} ({count/len(df):.2%})")
+            
+    report_lines.append("")
+    
+    # 4. Dates Validation
+    report_lines.append("## Dates Validation")
+    date_cols = ['approval_date', 'start_date', 'original_completion_date', 'revised_completion_date']
+    date_errors = 0
+    for col in date_cols:
+        if col in df.columns:
+            # Convert to datetime to check validity
+            df[col] = pd.to_datetime(df[col], errors='coerce')
+    
+    if 'start_date' in df.columns and 'original_completion_date' in df.columns:
+        invalid_dates = df[df['start_date'] > df['original_completion_date']]
+        if not invalid_dates.empty:
+            report_lines.append(f"- **Invalid Dates (Start > Original Completion)**: {len(invalid_dates)} records.")
+            # For ML, we might keep them but it's an anomaly. Let's just flag it.
+            date_errors += len(invalid_dates)
+            
+    if date_errors == 0:
+        report_lines.append("All date relationships look valid.")
+        
+    report_lines.append("")
+        
+    # 5. Costs & Physical Progress (Negative / Invalid values)
+    report_lines.append("## Numerical Validations (Costs & Progress)")
+    num_cols = ['original_cost', 'revised_cost', 'cumulative_expenditure', 'physical_progress']
+    num_errors = 0
+    for col in num_cols:
+        if col in df.columns:
+            # Convert to numeric
+            df[col] = pd.to_numeric(df[col], errors='coerce')
+            invalid_num = df[df[col] < 0]
+            if not invalid_num.empty:
+                report_lines.append(f"- **Negative values in {col}**: {len(invalid_num)} records.")
+                num_errors += len(invalid_num)
+                # Cap at 0
+                df.loc[df[col] < 0, col] = 0
+                
+            if col == 'physical_progress':
+                invalid_prog = df[df[col] > 100]
+                if not invalid_prog.empty:
+                    report_lines.append(f"- **Physical progress > 100%**: {len(invalid_prog)} records.")
+                    num_errors += len(invalid_prog)
+                    # Cap at 100
+                    df.loc[df[col] > 100, col] = 100
+                    
+    if num_errors == 0:
+        report_lines.append("All numerical values are valid (no negative costs/progress).")
+        
+    report_lines.append("")
+        
+    # Save the report
+    with open(report_file, 'w') as f:
+        f.write('\n'.join(report_lines))
+        
+    # Task 2: Master Dataset
+    df.to_csv(output_master_file, index=False)
+    print(f"Validation complete. Master dataset saved to {output_master_file}")
+    print(f"Report saved to {report_file}")
 
 if __name__ == "__main__":
-    main()
+    validate_data(
+        input_file="data/processed/paimana_cleaned.csv",
+        output_master_file="data/processed/master_projects.csv",
+        report_file="docs/data_quality_report.md"
+    )

@@ -93,13 +93,25 @@ This document categorizes variables available in the `paimana_master_v1.csv` dat
 - **Data Type**: Float (%)
 - **Meaning**: `(cumulative_expenditure / revised_cost) * 100`
 - **Leakage Risk**: **HIGH**. It uses `revised_cost` in the denominator! If used as an input to predict cost overruns, it implicitly leaks the revised cost.
-- **Classification**: **HIGH LEAKAGE RISK** (Use `cumulative_expenditure / original_cost` instead for safe ML inputs).
+- **Classification**: **HIGH LEAKAGE RISK** (Do not use as input. See `safe_expenditure_percent`).
+
+### `safe_expenditure_percent` (Derived)
+- **Data Type**: Float (%)
+- **Meaning**: `(cumulative_expenditure / original_cost) * 100`
+- **Leakage Risk**: None. Safe to use for predicting overruns because it is measured against the original baseline.
+- **Classification**: **POTENTIAL INPUT**
 
 ### `progress_gap` (Derived)
 - **Data Type**: Float
 - **Meaning**: `expenditure_percent - physical_progress`
 - **Leakage Risk**: **HIGH**, because it relies on `expenditure_percent`, which relies on `revised_cost`.
 - **Classification**: **HIGH LEAKAGE RISK**
+
+### `safe_progress_gap` (Derived)
+- **Data Type**: Float
+- **Meaning**: `safe_expenditure_percent - physical_progress`
+- **Leakage Risk**: None. Indicates if financial spending is outpacing physical progress without leaking the revised cost.
+- **Classification**: **POTENTIAL INPUT**
 
 ---
 
@@ -118,7 +130,19 @@ This document categorizes variables available in the `paimana_master_v1.csv` dat
 - **Classification**: **SAFE INPUT**
 
 ### `sector` / `ministry` (Implicit)
-- **Data Type**: String (Not cleanly available yet)
-- **Meaning**: Broad category (e.g., Road Transport, Petroleum).
-- **Missing Data Concern**: Not extracted directly in Table 6. Will need mapping from Agency.
-- **Classification**: **REQUIRES VERIFICATION**
+- **Data Type**: String
+- **Meaning**: Broad category (e.g., Roads & Highways, Water Resources).
+- **Extraction**: Inferred from Agency name and Project name.
+- **Classification**: **SAFE INPUT**
+
+### `project_size_category` (Derived)
+- **Data Type**: String (Categorical: Small, Medium, Large)
+- **Meaning**: Bucketing based on `original_cost`. Small (< 1000 Cr), Medium (1000 - 5000 Cr), Large (> 5000 Cr).
+- **ML Use**: Very helpful as large projects have systemically different risk profiles.
+- **Classification**: **SAFE INPUT**
+
+### `project_age_days` (Derived)
+- **Data Type**: Float
+- **Meaning**: Days between `approval_date` and the reporting month snapshot (July 2026).
+- **ML Use**: Indicates how long the project has been active.
+- **Classification**: **POTENTIAL INPUT**

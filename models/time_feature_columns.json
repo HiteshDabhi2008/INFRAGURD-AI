@@ -1,17 +1,1 @@
-{
-    "numeric_features": [
-        "original_cost",
-        "project_age_days",
-        "physical_progress",
-        "cumulative_expenditure",
-        "safe_expenditure_percent",
-        "safe_progress_gap",
-        "original_duration_days"
-    ],
-    "categorical_features": [
-        "state",
-        "agency",
-        "sector",
-        "project_size_category"
-    ]
-}
+{"num_features": ["physical_progress", "project_age_months", "original_duration_months", "remaining_original_duration_months", "progress_change_1m"], "cat_features": ["agency", "state"]}

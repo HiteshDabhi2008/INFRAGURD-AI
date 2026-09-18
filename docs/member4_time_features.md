@@ -1,66 +1,34 @@
-# Schedule Feature & Leakage Research (Member 4)
+# Member 4 - Day 3 Final Time Prediction Features
 
-This document catalogs the available features in `paimana_master_v1.csv` and evaluates their suitability as inputs for the Time Prediction Model, operating under the "Implementation-time Early Warning" prediction point.
+This document outlines the final set of features and the strict leakage check performed to ensure the time prediction models (`models/time_classifier.pkl` and `models/time_regressor.pkl`) are robust and use only available early-warning information.
 
-## 1. Safe Inputs (Confirmed in Dataset)
+## Target Definition
+Two targets were finalized for the time prediction system based on Day 2 justification:
+1. **`time_overrun_flag` (Classification)**: Binary target denoting whether the project is delayed beyond its original completion date (i.e. `time_overrun_months > 0`).
+2. **`time_overrun_months` (Regression)**: Continuous target measuring the exact magnitude of the delay in months from the original schedule.
 
-### `original_duration_months`
-- **Source**: Calculated: `original_completion_date` - `approval_date`
-- **Meaning**: The baseline planned duration of the project.
-- **Usefulness**: Very High. Projects with a baseline duration of 5+ years inherently face more exogenous risks (election cycles, macro-economic shifts, prolonged land acquisition) than 1-year projects.
-- **Classification**: **SAFE INPUT**
+## Strict Leakage Check
+To ensure the models simulate a real-world predictive environment (where future knowledge is hidden), we strictly excluded the following fields:
+* `revised_completion_date`
+* `time_overrun` (raw delay flag)
+* `time_overrun_months` (target)
+* Any future completion or anticipated milestone features.
 
-### `original_cost`
-- **Source**: PDF Column 6
-- **Meaning**: The initial project budget, acting as a proxy for physical scale and complexity.
-- **Usefulness**: High. Mega-projects generally take longer to coordinate and clear regulatory hurdles.
-- **Classification**: **SAFE INPUT**
+## Final Selected Features
 
-### `state`
-- **Source**: PDF Column 3
-- **Meaning**: Project location.
-- **Usefulness**: High. Environmental clearances (e.g., forest laws) and land acquisition speed vary drastically by state jurisdiction. 
-- **Classification**: **SAFE INPUT**
+The models rely heavily on the project's financial velocity and progress to implicitly gauge time risk.
 
-### `agency`
-- **Source**: PDF Column 2
-- **Meaning**: The executing body.
-- **Usefulness**: High. Reflects organizational efficiency and contractor management capability.
-- **Classification**: **SAFE INPUT**
+### Numeric Features (`NUM_FEATURES`)
+* `original_cost`: Baseline budget, indicating project complexity.
+* `original_duration_days`: Initial scheduled time budget.
+* `project_age_days`: Time elapsed since the `approval_date`.
+* `physical_progress`: The reported completion percentage (%).
+* `cumulative_expenditure`: Total funds spent.
+* `safe_expenditure_percent`: (`cumulative_expenditure` / `original_cost`) * 100.
+* `safe_progress_gap`: `safe_expenditure_percent` - `physical_progress`. Highlights potential mismatches in physical vs financial progress.
 
-## 2. Snapshot/Implementation Inputs
-
-### `physical_progress`
-- **Source**: PDF Column 8
-- **Meaning**: Percentage of physical completion at the time of the snapshot (July 2026).
-- **Usefulness**: High, *but only when paired with project age*. A project at 10% progress after 3 years is heavily delayed; a project at 10% progress after 1 month is on track.
-- **Classification**: **POTENTIAL INPUT** (Valid for Implementation-time prediction).
-
-### `cumulative_expenditure`
-- **Source**: PDF Column 7
-- **Meaning**: Total funds spent to date.
-- **Usefulness**: Medium. Often correlated with physical progress, but financial bottlenecks (funds exhausted before progress is complete) heavily predict future schedule stalling.
-- **Classification**: **POTENTIAL INPUT** (Valid for Implementation-time prediction).
-
-## 3. High Leakage Risk Variables (DO NOT USE AS INPUTS)
-
-### `revised_completion_date`
-- **Why it leaks**: Directly defines the Target. Knowing the revised date mathematically gives you the time overrun.
-- **Classification**: **TARGET / OUTCOME (LEAKAGE)**
-
-### `time_overrun_months` & `time_overrun_flag`
-- **Why it leaks**: They ARE the targets.
-- **Classification**: **TARGET / OUTCOME (LEAKAGE)**
-
-## 4. Missing but Highly Desirable Features (Requires Joins)
-
-To improve future iterations of the model, we strongly recommend integrating:
-- **`sector` & `ministry`**: Not currently at the project level in the master dataset, but highly predictive of delays (e.g., Railways vs. Urban Development).
-
-## 5. External Variables Research (For Future Integration)
-
-These external factors are known primary drivers of schedule delays in Indian infrastructure:
-1. **Land Acquisition Status**: (Source: State Land Records / PARIVESH). Delay in land handover is the #1 cause of project stalling.
-2. **Forest/Environmental Clearances**: (Source: PARIVESH portal). Projects in eco-sensitive zones face structural delays.
-3. **Monsoon/Weather Data**: (Source: IMD API). Heavy rainfall completely halts civil construction for 2-3 months a year in certain states.
-4. **Utility Shifting**: Delays in shifting electricity/water lines handled by municipal bodies.
+### Categorical Features (`CAT_FEATURES`)
+* `state`: The state where the project is being executed.
+* `agency`: Execution agency responsible.
+* `sector`: Industry sector (e.g., Railways, Roads & Highways).
+* `project_size_category`: Mega / Major size classification.

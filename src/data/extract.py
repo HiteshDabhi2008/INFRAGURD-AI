@@ -28,16 +28,16 @@ import sys
 
 
 # ──────────────────────────────────────────────
-# CONFIGURATION
+# CONFIGURATION (Defaults)
 # ──────────────────────────────────────────────
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 PDF_PATH = os.path.join(BASE_DIR, "data", "raw", "FlashReport_July_2026.pdf")
 OUTPUT_RAW_CSV = os.path.join(BASE_DIR, "data", "processed", "paimana_raw_extracted.csv")
 
-# Table 6 starts on page 54 (0-indexed: 53) and ends on page 152 (0-indexed: 151)
+# Table 6 typically starts on page 54 (0-indexed: 53)
 TABLE6_START_PAGE = 53  # 0-indexed
-TABLE6_END_PAGE = 152   # 0-indexed, inclusive
+TABLE6_END_PAGE = 200   # Set higher to ensure we get all pages, will be capped by total_pages
 
 REPORT_MONTH = "July 2026"
 SOURCE_REPORT = "FlashReport_July_2026.pdf"
@@ -168,7 +168,7 @@ def parse_cost_pair(raw: str) -> tuple:
 # MAIN EXTRACTION
 # ──────────────────────────────────────────────
 
-def extract_table6(pdf_path: str) -> pd.DataFrame:
+def extract_table6(pdf_path: str, start_page=TABLE6_START_PAGE, end_page=TABLE6_END_PAGE, report_month=REPORT_MONTH, source_report=SOURCE_REPORT, expected_count=EXPECTED_PROJECT_COUNT) -> pd.DataFrame:
     """
     Extract all project rows from Table 6 of the PAIMANA Flash Report.
 
@@ -181,9 +181,9 @@ def extract_table6(pdf_path: str) -> pd.DataFrame:
     with pdfplumber.open(pdf_path) as pdf:
         total_pages = len(pdf.pages)
         print(f"Total pages: {total_pages}")
-        print(f"Extracting Table 6 from pages {TABLE6_START_PAGE + 1} to {TABLE6_END_PAGE + 1}...")
+        print(f"Extracting Table 6 from pages {start_page + 1} to {end_page + 1}...")
 
-        for page_idx in range(TABLE6_START_PAGE, min(TABLE6_END_PAGE + 1, total_pages)):
+        for page_idx in range(start_page, min(end_page + 1, total_pages)):
             page = pdf.pages[page_idx]
             page_num = page_idx + 1
             tables = page.extract_tables()
@@ -233,8 +233,8 @@ def extract_table6(pdf_path: str) -> pd.DataFrame:
                         "cumulative_expenditure": str(row[6]).strip() if row[6] else None,
                         "physical_progress": str(row[7]).strip() if row[7] else None,
                         "source_page": page_num,
-                        "report_month": REPORT_MONTH,
-                        "source_report": SOURCE_REPORT,
+                        "report_month": report_month,
+                        "source_report": source_report,
                     })
 
     df = pd.DataFrame(all_rows)
@@ -244,7 +244,7 @@ def extract_table6(pdf_path: str) -> pd.DataFrame:
     print(f"EXTRACTION SUMMARY")
     print(f"{'='*60}")
     print(f"Total rows extracted:      {len(df)}")
-    print(f"Expected project count:    {EXPECTED_PROJECT_COUNT}")
+    print(f"Expected project count:    {expected_count}")
     print(f"Max Sl.No found:           {df['sl_no'].max() if len(df) > 0 else 'N/A'}")
     print(f"Min Sl.No found:           {df['sl_no'].min() if len(df) > 0 else 'N/A'}")
     print(f"Unique Sl.No count:        {df['sl_no'].nunique() if len(df) > 0 else 'N/A'}")
@@ -257,7 +257,7 @@ def extract_table6(pdf_path: str) -> pd.DataFrame:
 
     # Check for missing Sl.Nos
     if len(df) > 0:
-        expected_sl_nos = set(range(1, EXPECTED_PROJECT_COUNT + 1))
+        expected_sl_nos = set(range(1, expected_count + 1))
         found_sl_nos = set(df['sl_no'].tolist())
         missing_sl_nos = sorted(expected_sl_nos - found_sl_nos)
         duplicate_sl_nos = df[df['sl_no'].duplicated(keep=False)]['sl_no'].unique().tolist()

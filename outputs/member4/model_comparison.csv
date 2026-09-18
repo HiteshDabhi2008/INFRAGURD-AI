@@ -1,7 +1,7 @@
 Task,Model,Accuracy,Precision,Recall,F1,ROC-AUC,MAE,RMSE,R2
-Classification,Logistic Regression,0.8725,0.8933,0.9054,0.8993,0.9236,,,
-Classification,Random Forest,0.8669,0.907,0.8784,0.8924,0.9412,,,
-Classification,XGBoost,0.8584,0.8945,0.8784,0.8864,0.9269,,,
-Regression,Linear Regression,,,,,,12.2637,21.2675,0.5876
-Regression,Random Forest Regressor,,,,,,8.4986,24.7333,0.4422
-Regression,XGBoost Regressor,,,,,,8.6889,23.8092,0.4831
+Classification,Logistic Regression,0.8442,0.8711,0.8829,0.877,0.8963,,,
+Classification,Random Forest,0.8329,0.859,0.8784,0.8686,0.9144,,,
+Classification,XGBoost,0.8215,0.8698,0.8423,0.8558,0.8941,,,
+Regression,Linear Regression,,,,,,15.8869,31.2266,0.1109
+Regression,Random Forest Regressor,,,,,,13.0184,30.4053,0.1571
+Regression,XGBoost Regressor,,,,,,14.1054,31.0977,0.1183

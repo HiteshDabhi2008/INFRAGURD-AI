@@ -1,84 +1,89 @@
+"""
+cost_model.py - Member 3
+============================================================
+Inference script for the Cost Prediction ML Model.
+Provides reusable functions for Member 5 and Member 6.
+"""
+
 import os
 import json
 import joblib
 import pandas as pd
+import numpy as np
 
-# Load models and schema once at module level to avoid reloading per request
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-MODELS_DIR = os.path.join(BASE_DIR, "models")
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+MODEL_DIR = os.path.join(BASE_DIR, "models")
+MODEL_PATH = os.path.join(MODEL_DIR, "cost_prediction_model.pkl")
+FEATURES_PATH = os.path.join(MODEL_DIR, "cost_feature_columns.json")
 
-CLASSIFIER_PATH = os.path.join(MODELS_DIR, "cost_classifier.pkl")
-REGRESSOR_PATH = os.path.join(MODELS_DIR, "cost_regressor.pkl")
-SCHEMA_PATH = os.path.join(MODELS_DIR, "cost_feature_columns.json")
+_model = None
+_feature_info = None
 
-classifier = None
-regressor = None
-feature_schema = None
+def load_model():
+    global _model, _feature_info
+    if _model is None:
+        if not os.path.exists(MODEL_PATH):
+            raise FileNotFoundError(f"Model not found at {MODEL_PATH}")
+        _model = joblib.load(MODEL_PATH)
+        
+        with open(FEATURES_PATH, "r") as f:
+            _feature_info = json.load(f)
 
-def _load_resources():
-    global classifier, regressor, feature_schema
-    if classifier is None and os.path.exists(CLASSIFIER_PATH):
-        classifier = joblib.load(CLASSIFIER_PATH)
-    if regressor is None and os.path.exists(REGRESSOR_PATH):
-        regressor = joblib.load(REGRESSOR_PATH)
-    if feature_schema is None and os.path.exists(SCHEMA_PATH):
-        with open(SCHEMA_PATH, "r") as f:
-            feature_schema = json.load(f)
-
-def predict_cost_risk(project_data: dict) -> dict:
+def predict_total_cost(project_data: dict) -> float:
     """
-    Predicts the cost overrun risk and magnitude for a given project.
+    Predicts the total expected cost at 100% completion for a given project.
     
     Args:
-        project_data (dict): A dictionary containing project features. 
-            Must include at least the keys defined in the feature schema.
-            
+        project_data (dict): Dictionary containing all required features.
+            Expected keys: 'original_cost', 'physical_progress', 'cumulative_expenditure', 
+                           'progress_change_1m', 'expenditure_change_1m', 'expenditure_per_progress',
+                           'state', 'agency', 'project_size_category'
+                           
     Returns:
-        dict: A dictionary containing risk assessment:
-            {
-                "risk_level": "HIGH" | "MEDIUM" | "LOW",
-                "overrun_probability": float,
-                "expected_overrun_percent": float,
-                "is_cost_overrun": bool
-            }
+        float: Predicted total cost in Rs. Crore.
     """
-    _load_resources()
+    load_model()
     
-    if not classifier or not regressor or not feature_schema:
-        raise RuntimeError("Models or schema not found. Please train the model first.")
-        
-    # Convert input to DataFrame
+    # Convert dict to DataFrame
     df = pd.DataFrame([project_data])
     
-    # Ensure all expected columns are present, fill with None/NaN if missing
-    all_features = feature_schema["numeric_features"] + feature_schema["categorical_features"]
+    # Ensure all expected columns are present
+    all_features = _feature_info['num_features'] + _feature_info['cat_features']
     for col in all_features:
         if col not in df.columns:
-            df[col] = None
-            
-    # Keep only the features in the exact order the pipeline expects, though the 
-    # ColumnTransformer handles order based on column names.
+            # Provide sensible defaults for missing features
+            if col in _feature_info['num_features']:
+                df[col] = 0.0
+            else:
+                df[col] = 'Unknown'
+                
+    # Reorder columns to match training
     df = df[all_features]
     
-    # Inference
-    # 1. Classification (Probability of overrun)
-    overrun_prob = classifier.predict_proba(df)[0, 1]
-    is_overrun = bool(classifier.predict(df)[0])
+    # Predict
+    pred = _model.predict(df)[0]
     
-    # 2. Regression (Expected overrun percentage)
-    expected_overrun_pct = float(regressor.predict(df)[0])
+    # Cap prediction at cumulative_expenditure (cannot cost less than what we spent)
+    if 'cumulative_expenditure' in project_data:
+        pred = max(pred, project_data['cumulative_expenditure'])
+        
+    return pred
+
+def predict_project_cost_risk(project_data: dict) -> dict:
+    """
+    Returns the predicted total cost and the predicted cost overrun percentage.
+    Useful for Member 5 (Risk Engine) and Member 6 (Dashboard).
+    """
+    predicted_cost = predict_total_cost(project_data)
     
-    # Determine Risk Level based on probability
-    if overrun_prob > 0.70:
-        risk_level = "HIGH"
-    elif overrun_prob > 0.40:
-        risk_level = "MEDIUM"
+    original_cost = project_data.get('original_cost', 0)
+    
+    if original_cost > 0:
+        overrun_percent = ((predicted_cost - original_cost) / original_cost) * 100
     else:
-        risk_level = "LOW"
+        overrun_percent = 0.0
         
     return {
-        "risk_level": risk_level,
-        "overrun_probability": round(overrun_prob, 3),
-        "expected_overrun_percent": round(expected_overrun_pct, 2),
-        "is_cost_overrun": is_overrun
+        "predicted_total_cost": predicted_cost,
+        "cost_overrun_percent": overrun_percent
     }

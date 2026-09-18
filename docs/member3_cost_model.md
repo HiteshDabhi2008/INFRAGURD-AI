@@ -1,45 +1,50 @@
-# Member 3: Cost Prediction Model Definition
+# Member 3: Cost Prediction ML Model
 
-## 1. Prediction Targets
+## Overview
+This document outlines the methodology and results for the Machine Learning model designed to predict the **Total Cost at 100% Completion** for PAIMANA infrastructure projects.
 
-To provide a comprehensive cost-overrun prediction pipeline, we define two specific prediction targets:
+## Objective
+To provide an early-warning signal for cost overruns by comparing the currently observed spending velocity against the initial budget.
 
-*   **Classification Target (`cost_overrun_flag`)**: A binary indicator (1 or 0) predicting whether a project will experience *any* cost overrun.
-    *   *Calculation*: `1 if revised_cost > original_cost else 0`
-*   **Regression Target (`cost_overrun_percent`)**: A continuous value predicting the *magnitude* of the cost overrun as a percentage of the original cost.
-    *   *Calculation*: `((revised_cost - original_cost) / original_cost) * 100` (Negative values denote cost savings, positive values denote escalations).
+## Data Processing
+The model leverages a longitudinal dataset constructed from monthly snapshot PDFs (April 2026 – July 2026).
+- **Inputs**: Features engineered in `cost_features.py` using historical data.
+- **Target**: `target_total_cost` (proxied using `revised_cost` for training).
 
-## 2. Data Leakage Audit
+## Models Evaluated
+1. **Baseline**: Ridge Regression (Linear Regression with L2 regularization)
+2. **Random Forest Regressor**: Selected for its robustness to outliers and non-linear relationships.
+3. **XGBoost Regressor**: Used for gradient boosting performance if available in the environment.
 
-When predicting cost overruns, it is critical to ensure that no future knowledge about the `revised_cost` leaks into the input features.
+## Model Selection
+The final model is selected based on minimizing the Mean Absolute Error (MAE) and Mean Absolute Percentage Error (MAPE). 
 
-### Excluded Features (High Leakage Risk):
-*   `revised_cost`
-*   `cost_change`
-*   `cost_change_percent`
-*   `cost_overrun` (if present)
-*   `expenditure_percent` (Day 1 calculation used `revised_cost` in the denominator).
-*   `progress_gap` (Relied on leaky `expenditure_percent`).
+## Output Contract (for Member 5 & 6)
+- **File**: `outputs/member3/cost_predictions.csv`
+- **Fields Provided**:
+  - `project_code`: Unique identifier
+  - `predicted_total_cost`: Predicted cost at completion (Cr)
+  - `cost_overrun_percent`: Predicted overrun percentage relative to `original_cost`.
 
-### Safe Input Features:
-The following features are safe as they rely on the initial baselines or current snapshot metrics without incorporating the final revised expectations:
-*   `original_cost`
-*   `project_age_days`
-*   `physical_progress`
-*   `cumulative_expenditure`
-*   `safe_expenditure_percent` (Calculated using `original_cost`)
-*   `safe_progress_gap`
-*   `state`
-*   `agency`
-*   `sector`
-*   `original_duration_days`
-*   `project_size_category`
+## How to Run Inference
+Use the functions provided in `src/models/cost_model.py`:
+```python
+from src.models.cost_model import predict_project_cost_risk
 
-## 3. Temporal Limitation Warning
+# Example data
+project_data = {
+    'original_cost': 500.0,
+    'physical_progress': 45.0,
+    'cumulative_expenditure': 200.0,
+    'progress_change_1m': 2.5,
+    'expenditure_change_1m': 10.0,
+    'expenditure_per_progress': 4.44,
+    'state': 'Maharashtra',
+    'agency': 'NHAI',
+    'project_size_category': 'Small'
+}
 
-> [!WARNING]
-> This model is trained on a single snapshot of data (July 2026). In this snapshot, some projects have already concluded, some are ongoing, and some are just starting.
->
-> A model trained to map current (potentially late-stage) features like `physical_progress=98%` to a known `revised_cost` is **not a true early-warning system**. To build a robust temporal predictive model, we would need historical month-over-month snapshots to train the model to predict *future* overruns based on *past* states (e.g., predicting month 24's cost overrun using data strictly from month 12).
->
-> For this Hackathon prototype, we assume the snapshot serves as a proxy point-in-time evaluation.
+risk = predict_project_cost_risk(project_data)
+print(risk['predicted_total_cost'])
+print(risk['cost_overrun_percent'])
+```

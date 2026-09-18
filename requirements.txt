@@ -16,3 +16,8 @@ groq
 langchain
 langchain-groq
 huggingface_hub
+sqlalchemy
+passlib
+bcrypt
+fastapi
+python-jose[cryptography]

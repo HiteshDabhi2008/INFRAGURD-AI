@@ -111,8 +111,9 @@ def predict_project_risk(project_dict: Dict[str, Any]) -> Dict[str, Any]:
         "explanation": "Calculated based on real-time cost and time models.",
         "cost_model_output": {
             "risk_level": cost_risk_level,
-            "expected_overrun_percent": round(cost_overrun_pct, 1),
-            "is_cost_overrun": cost_overrun_pct > 0
+            "expected_overrun_percent": round(float(cost_overrun_pct), 1),
+            "is_cost_overrun": bool(cost_overrun_pct > 0),
+            "predicted_total_cost": round(float(cost_res.get("predicted_total_cost", 0.0)), 2)
         },
         "time_model_output": time_res
     }

@@ -8,13 +8,11 @@ import {
   FolderKanban, 
   PlusCircle, 
   AlertTriangle, 
-  TrendingUp, 
-  CalendarClock, 
   Activity, 
   FileText, 
   Bot,
-  Settings,
-  Users
+  Users,
+  UserCircle
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -29,16 +27,13 @@ const Sidebar = () => {
     { name: 'Projects', path: '/dashboard/projects', icon: FolderKanban },
     { name: 'Newly Added', path: '/dashboard/new-projects', icon: PlusCircle },
     { name: 'Risk Intelligence', path: '/dashboard/risk', icon: AlertTriangle },
-    { name: 'Cost Analytics', path: '/dashboard/cost', icon: TrendingUp },
-    { name: 'Schedule Analytics', path: '/dashboard/schedule', icon: CalendarClock },
-    { name: 'Progress Analytics', path: '/dashboard/progress', icon: Activity },
     { name: 'Reports', path: '/dashboard/reports', icon: FileText },
     { name: 'AI Assistant', path: '/dashboard/ai', icon: Bot },
+    { name: 'User Profile', path: '/dashboard/profile', icon: UserCircle },
   ];
 
   const adminItems = [
-    { name: 'Users', path: '/admin/users', icon: Users },
-    { name: 'Settings', path: '/admin/settings', icon: Settings },
+    { name: 'Users & Roles', path: '/dashboard/profile', icon: Users },
   ];
 
   const isAdmin = user?.role === 'Super Admin' || user?.authority_type === 'Super Admin';

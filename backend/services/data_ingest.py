@@ -269,12 +269,19 @@ def _seed_projects_and_history(db: Session):
 
         # Feature entry
         feat = features_map.get(p_code, {})
+        def safe_int(val, default=0):
+            try:
+                f_val = float(val)
+                return default if pd.isna(f_val) else int(f_val)
+            except (ValueError, TypeError):
+                return default
+
         f = ProjectFeature(
             project_code=p_code,
             report_month="July 2026",
-            project_age_days=int(feat.get("project_age_days", 365) or 365),
-            original_duration_days=int(feat.get("original_duration_days", 730) or 730),
-            revised_duration_days=int(feat.get("revised_duration_days", 730) or 730),
+            project_age_days=safe_int(feat.get("project_age_days"), 365),
+            original_duration_days=safe_int(feat.get("original_duration_days"), 730),
+            revised_duration_days=safe_int(feat.get("revised_duration_days"), 730),
             expenditure_percent=float(feat.get("expenditure_percent", (cum_exp/rev_cost*100) if rev_cost else 0) or 0),
             progress_gap=float(feat.get("progress_gap", 0) or 0),
             cost_change=float(feat.get("cost_change", rev_cost - orig_cost) or 0),

@@ -14,8 +14,10 @@ import SectorView from './pages/dashboard/SectorView';
 import StateView from './pages/dashboard/StateView';
 import NewProjectsView from './pages/dashboard/NewProjectsView';
 import AIAssistant from './pages/dashboard/AIAssistant';
-
-
+import RiskAssessment from './pages/dashboard/RiskAssessment';
+import ProjectRiskAssessment from './pages/dashboard/ProjectRiskAssessment';
+import ReportsView from './pages/dashboard/ReportsView';
+import UserProfile from './pages/dashboard/UserProfile';
 
 function App() {
   return (
@@ -30,16 +32,30 @@ function App() {
           {/* Protected Dashboard Routes */}
           <Route path="/dashboard" element={<MainLayout />}>
             <Route index element={<MainDashboard />} />
+            <Route path="risk" element={<RiskAssessment />} />
             <Route path="ministry" element={<MinistryView />} />
             <Route path="sector" element={<SectorView />} />
             <Route path="state" element={<StateView />} />
             <Route path="projects" element={<ProjectList />} />
             <Route path="projects/:id" element={<ProjectIntelligence />} />
+            <Route path="projects/:id/risk" element={<ProjectRiskAssessment />} />
             <Route path="new-projects" element={<NewProjectsView />} />
+            <Route path="new-projects/add" element={<Navigate to="/dashboard/new-projects" replace />} />
+            <Route path="reports" element={<ReportsView />} />
+            <Route path="profile" element={<UserProfile />} />
             <Route path="ai" element={<AIAssistant />} />
-            {/* Add other dashboard routes here as we build them */}
+
+            {/* Removed analytics routes redirect cleanly to dashboard */}
+            <Route path="cost" element={<Navigate to="/dashboard" replace />} />
+            <Route path="schedule" element={<Navigate to="/dashboard" replace />} />
+            <Route path="progress" element={<Navigate to="/dashboard" replace />} />
+            <Route path="analytics/*" element={<Navigate to="/dashboard" replace />} />
+
+            {/* Catch-all dashboard fallback */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Route>
+          
+          <Route path="/admin/users" element={<Navigate to="/dashboard/profile" replace />} />
           
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />

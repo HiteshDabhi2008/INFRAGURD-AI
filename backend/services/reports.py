@@ -29,3 +29,4 @@ def generate_projects_csv(db: Session, projects: List[Project]) -> str:
         ])
         
     return output.getvalue()
+

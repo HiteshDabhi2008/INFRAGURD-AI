@@ -95,16 +95,29 @@ def require_roles(allowed_roles: List[str]):
     return role_checker
 
 
-def check_project_access(user: User, project_state: Optional[str], project_agency: Optional[str], project_ministry: Optional[str]) -> bool:
-    """Check if the user has access to this project based on organization/state scope."""
+def check_project_access(
+    user: User,
+    project_state: Optional[str],
+    project_agency: Optional[str],
+    project_ministry: Optional[str],
+    project_sector: Optional[str] = None
+) -> bool:
+    """Check if the user has access to this project based on organization, state, and sector scope."""
     user_role = _canonical_role(user)
     project_state = (project_state or "").casefold()
     project_agency = (project_agency or "").casefold()
     project_ministry = (project_ministry or "").casefold()
+    project_sector = (project_sector or "").casefold()
     user_state = (user.state_region or "").casefold()
     user_agency = (user.agency or "").casefold()
     user_organization = (user.organization or "").casefold()
     user_department = (user.department or "").casefold()
+    user_sector = (getattr(user, "sector", None) or "").casefold()
+
+    # Sector enforcement: if user has a specific assigned sector, project MUST match that sector
+    if user_sector and user_sector not in {"all", "all sectors", "national"}:
+        if not project_sector or user_sector not in project_sector:
+            return False
 
     if user_role in {"SUPER_ADMIN", "MOSPI_IPMD_ADMIN"}:
         return True
@@ -128,17 +141,23 @@ def check_project_access(user: User, project_state: Optional[str], project_agenc
         return bool(user_state and user_state not in {"all", "all india", "national"} and user_state in project_state)
 
     if user_role == "VIEWER_AUDITOR":
-        if user_state in {"all", "all india", "national"}:
+        if user_state in {"all", "all india", "national"} and not user_agency and not user_organization and not user_sector:
             return True
-        if not user_state and not user_agency:
-            return False
-        return bool((user_state and user_state in project_state) or (user_agency and user_agency in project_agency))
+        allowed = True
+        if user_state and user_state not in {"all", "all india", "national"}:
+            allowed = allowed and bool(user_state in project_state)
+        if user_agency:
+            allowed = allowed and bool(user_agency in project_agency)
+        if user_organization:
+            allowed = allowed and bool(user_organization in project_ministry)
+        return allowed
 
     return False
 
 
 def _canonical_role_name(role_name: str) -> str:
-    normalized = role_name.strip().casefold().replace("/", "_").replace(" ", "_")
+    import re
+    normalized = re.sub(r'[\s/_]+', '_', (role_name or "").strip().casefold()).strip('_')
     aliases = {
         "super_admin": "SUPER_ADMIN",
         "mospi_ipmd_admin": "MOSPI_IPMD_ADMIN",

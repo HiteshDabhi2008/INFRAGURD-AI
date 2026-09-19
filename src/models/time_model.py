@@ -65,9 +65,30 @@ def predict_time_risk(project_data: dict) -> dict:
             "Time models or schema not found. Run train_time_model.py first."
         )
 
-    all_features = _schema["numeric_features"] + _schema["categorical_features"]
+    if hasattr(_classifier, "feature_names_in_"):
+        all_features = list(_classifier.feature_names_in_)
+    else:
+        num_cols = _schema.get("num_features") or _schema.get("numeric_features") or []
+        cat_cols = _schema.get("cat_features") or _schema.get("categorical_features") or []
+        all_features = num_cols + cat_cols
 
     df = pd.DataFrame([project_data])
+    orig = float(project_data.get("original_cost") or 100.0)
+    exp = float(project_data.get("cumulative_expenditure") or 0.0)
+    prog = float(project_data.get("physical_progress") or 0.0)
+    safe_exp_pct = (exp / orig * 100.0) if orig > 0 else 0.0
+
+    if "safe_expenditure_percent" not in df.columns:
+        df["safe_expenditure_percent"] = safe_exp_pct
+    if "safe_progress_gap" not in df.columns:
+        df["safe_progress_gap"] = safe_exp_pct - prog
+    if "project_size_category" not in df.columns:
+        df["project_size_category"] = "Medium"
+    if "project_age_days" not in df.columns:
+        df["project_age_days"] = int(project_data.get("project_age_months", 12) or 12) * 30
+    if "original_duration_days" not in df.columns:
+        df["original_duration_days"] = int(project_data.get("original_duration_months", 24) or 24) * 30
+
     for col in all_features:
         if col not in df.columns:
             df[col] = None

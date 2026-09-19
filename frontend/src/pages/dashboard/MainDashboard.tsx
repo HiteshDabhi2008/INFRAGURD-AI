@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Activity, AlertTriangle, Building2, CheckCircle, FolderKanban, IndianRupee, Map, PieChart, TrendingUp } from 'lucide-react';
+import { Activity, AlertTriangle, Building2, CheckCircle, FolderKanban, IndianRupee, Map, PieChart, TrendingUp, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { analyticsApi } from '../../services/api';
 
@@ -37,7 +37,28 @@ const MainDashboard = () => {
   ] as const;
 
   return <div className="space-y-6">
-    <div><h1 className="text-2xl font-bold text-black">Infrastructure Intelligence Dashboard</h1><p className="text-sm text-slate-500">Live portfolio metrics from authorized project records.</p></div>
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div>
+        <h1 className="text-2xl font-bold text-black">Infrastructure Intelligence Dashboard</h1>
+        <p className="text-sm text-slate-500">Live portfolio metrics from authorized project records.</p>
+      </div>
+      <div className="flex items-center gap-2">
+        <Link 
+          to="/dashboard/reports" 
+          className="flex items-center gap-2 px-3.5 py-2 text-slate-700 bg-white border border-slate-200 rounded-lg text-sm font-semibold hover:bg-slate-50 transition-colors shadow-xs"
+        >
+          <FileText className="w-4 h-4 text-government-blue" />
+          <span>Executive Reports</span>
+        </Link>
+        <Link 
+          to="/dashboard/projects" 
+          className="flex items-center gap-2 px-4 py-2 bg-government-blue text-white rounded-lg text-sm font-semibold hover:bg-blue-800 transition-colors shadow-sm"
+        >
+          <FolderKanban className="w-4 h-4" />
+          <span>Explore Projects</span>
+        </Link>
+      </div>
+    </div>
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">{cards.map(({ label, value, icon: Icon, link }) => <Link key={label} to={link} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:border-government-blue"><Icon className="w-5 h-5 text-government-blue mb-4" /><div className="text-2xl font-bold text-black">{value}</div><div className="text-xs text-slate-500 font-medium">{label}</div></Link>)}</div>
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <section className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm"><h2 className="font-bold mb-4">Portfolio Views</h2><div className="grid grid-cols-2 gap-3">{modules.map(([label, Icon, path]) => <Link key={label} to={path} className="p-4 border border-slate-200 rounded-lg text-center hover:border-government-blue"><Icon className="mx-auto mb-2 w-6 h-6 text-government-blue" /><span className="text-sm font-semibold">{label}</span></Link>)}</div></section>

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Lock, Mail, ShieldCheck, Activity } from 'lucide-react';
+import { Lock, Mail, ShieldCheck, Activity, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import api from '../../services/api';
 
@@ -160,6 +160,3 @@ const LoginPage = () => {
 };
 
 export default LoginPage;
-
-// A local icon for AlertTriangle since we forgot to import it in the top block
-import { AlertTriangle } from 'lucide-react';

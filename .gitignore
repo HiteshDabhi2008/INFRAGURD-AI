@@ -5,3 +5,5 @@ __pycache__/
 .ipynb_checkpoints/
 models/*.pkl
 data/raw/*.pdf
+scratch/
+temp_prompt.txt
